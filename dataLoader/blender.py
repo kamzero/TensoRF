@@ -11,8 +11,8 @@ from .ray_utils import *
 
 
 class BlenderDataset(Dataset):
-    def __init__(self, datadir, split='train', downsample=1.0, is_stack=False, N_vis=-1):
-
+    def __init__(self, datadir, split='train', downsample=1.0, is_stack=False, N_vis=-1, transform_matrix=None):
+        self.transform_matrix = transform_matrix
         self.N_vis = N_vis
         self.root_dir = datadir
         self.split = split
@@ -65,6 +65,8 @@ class BlenderDataset(Dataset):
 
             frame = self.meta['frames'][i]
             pose = np.array(frame['transform_matrix']) @ self.blender2opencv
+            if self.transform_matrix is not None:
+                pose = self.transform_matrix @ pose
             c2w = torch.FloatTensor(pose)
             self.poses += [c2w]
 

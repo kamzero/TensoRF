@@ -1,7 +1,7 @@
 
 dataset_name = blender
 datadir = /mnt/nas/share/home/jxr/3D-MAE/NeRF/nerf_synthetic/lego
-expname =  tensorf_lego_VM
+expname =  tensorf_lego_MERF
 basedir = ./log
 
 n_iters = 30000
@@ -19,7 +19,7 @@ render_test = 1
 
 n_lamb_sigma = [16,16,16]
 n_lamb_sh = [48,48,48]
-model_name = TensorVMSplit
+model_name = TensorMG
 
 
 shadingMode = MLP_Fea

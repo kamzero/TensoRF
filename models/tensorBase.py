@@ -274,6 +274,10 @@ class TensorBase(torch.nn.Module):
         mask_outbbox = ((self.aabb[0] > rays_pts) | (rays_pts > self.aabb[1])).any(dim=-1)
         return rays_pts, interpx, ~mask_outbbox
 
+    '''
+    Given a ray, sample points on the ray
+    And label if the sample point is inside the AABB box
+    '''
     def sample_ray(self, rays_o, rays_d, is_train=True, N_samples=-1):
         N_samples = N_samples if N_samples>0 else self.nSamples
         stepsize = self.stepSize
@@ -292,6 +296,7 @@ class TensorBase(torch.nn.Module):
 
         rays_pts = rays_o[...,None,:] + rays_d[...,None,:] * interpx[...,None]
         mask_outbbox = ((self.aabb[0]>rays_pts) | (rays_pts>self.aabb[1])).any(dim=-1)
+        # TODO: check if rays_pts is inside the content_aabb box
 
         return rays_pts, interpx, ~mask_outbbox
 

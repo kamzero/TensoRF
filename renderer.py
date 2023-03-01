@@ -1,7 +1,7 @@
 import torch,os,imageio,sys
 from tqdm.auto import tqdm
 from dataLoader.ray_utils import get_rays
-from models.tensoRF import TensorVM, TensorCP, raw2alpha, TensorVMSplit, AlphaGridMask
+from models.tensoRF import TensorVM, TensorCP, raw2alpha, TensorVMSplit, AlphaGridMask, TensorMG
 from utils import *
 from dataLoader.ray_utils import ndc_rays_blender
 
@@ -19,6 +19,7 @@ def OctreeRender_trilinear_fast(rays, tensorf, chunk=4096, N_samples=-1, ndc_ray
         depth_maps.append(depth_map)
     
     return torch.cat(rgbs), None, torch.cat(depth_maps), None, None
+
 
 @torch.no_grad()
 def evaluation(test_dataset,tensorf, args, renderer, savePath=None, N_vis=5, prtx='', N_samples=-1,

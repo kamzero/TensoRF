@@ -3,22 +3,22 @@ import os
 from tqdm.auto import tqdm
 from opt import config_parser
 
-
-
 import json, random
 from renderer import *
 from utils import *
 from torch.utils.tensorboard import SummaryWriter
 import datetime
-
+from pyquaternion import Quaternion
 from dataLoader import dataset_dict
 import sys
-
-
+import numpy as np
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 renderer = OctreeRender_trilinear_fast
+
+import wandb
+import random
 
 
 class SimpleSampler:
@@ -49,11 +49,29 @@ def export_mesh(args):
     convert_sdf_samples_to_ply(alpha.cpu(), f'{args.ckpt[:-3]}.ply',bbox=tensorf.aabb.cpu(), level=0.005)
 
 
+def get_transform_matrix(mode='z', angle_pos=1):
+    axis = {'x': [1, 0, 0], 'y': [0, 1, 0], 'z': [0, 0, 1], 'random':[random.random(), random.random(), random.random()]}
+
+    # Define the rotation angles in degrees
+    angles_deg = angle_pos*30
+    # Convert angles to radians
+    angles_rad = np.radians(angles_deg)
+    mat = Quaternion(axis=axis[mode], angle=angles_rad).transformation_matrix
+    return mat
+
+
 @torch.no_grad()
 def render_test(args):
     # init dataset
     dataset = dataset_dict[args.dataset_name]
-    test_dataset = dataset(args.datadir, split='test', downsample=args.downsample_train, is_stack=True)
+    
+    transform_matrix = get_transform_matrix(mode=args.axis_mode, angle_pos=args.angle_pos)
+    
+    if args.transform:
+        test_dataset = dataset(args.datadir, split='test', downsample=args.downsample_train, is_stack=True, transform_matrix=transform_matrix)
+    else:
+        test_dataset = dataset(args.datadir, split='test', downsample=args.downsample_train, is_stack=True)
+
     white_bg = test_dataset.white_bg
     ndc_ray = args.ndc_ray
 
@@ -67,6 +85,9 @@ def render_test(args):
     tensorf = eval(args.model_name)(**kwargs)
     tensorf.load(ckpt)
 
+    if args.transform: # transform tensorf
+        tensorf.transform(transform_matrix)
+
     logfolder = os.path.dirname(args.ckpt)
     if args.render_train:
         os.makedirs(f'{logfolder}/imgs_train_all', exist_ok=True)
@@ -76,9 +97,15 @@ def render_test(args):
         print(f'======> {args.expname} train all psnr: {np.mean(PSNRs_test)} <========================')
 
     if args.render_test:
-        os.makedirs(f'{logfolder}/{args.expname}/imgs_test_all', exist_ok=True)
-        evaluation(test_dataset,tensorf, args, renderer, f'{logfolder}/{args.expname}/imgs_test_all/',
-                                N_vis=-1, N_samples=-1, white_bg = white_bg, ndc_ray=ndc_ray,device=device)
+        if args.transform: 
+            os.makedirs(f'{logfolder}/{args.expname}/imgs_test_all_transform', exist_ok=True)
+            PSNRs_test = evaluation(test_dataset,tensorf, args, renderer, f'{logfolder}/{args.expname}/imgs_test_all_transform/',
+                                    N_vis=-1, N_samples=-1, white_bg = white_bg, ndc_ray=ndc_ray,device=device)
+        else:
+            os.makedirs(f'{logfolder}/{args.expname}/imgs_test_all', exist_ok=True)
+            PSNRs_test = evaluation(test_dataset,tensorf, args, renderer, f'{logfolder}/{args.expname}/imgs_test_all/',
+                                    N_vis=-1, N_samples=-1, white_bg = white_bg, ndc_ray=ndc_ray,device=device)
+        print(f'======> {args.expname} train all psnr: {np.mean(PSNRs_test)} <========================')
 
     if args.render_path:
         c2ws = test_dataset.render_path
@@ -90,8 +117,16 @@ def reconstruction(args):
 
     # init dataset
     dataset = dataset_dict[args.dataset_name]
-    train_dataset = dataset(args.datadir, split='train', downsample=args.downsample_train, is_stack=False)
-    test_dataset = dataset(args.datadir, split='test', downsample=args.downsample_train, is_stack=True)
+    transform_matrix = get_transform_matrix(mode=args.axis_mode, angle_pos=args.angle_pos)
+    
+    if args.transform:
+        train_dataset = dataset(args.datadir, split='train', downsample=args.downsample_train, is_stack=False, transform_matrix=transform_matrix)
+        test_dataset = dataset(args.datadir, split='test', downsample=args.downsample_train, is_stack=True, transform_matrix=transform_matrix)
+    else:
+        train_dataset = dataset(args.datadir, split='train', downsample=args.downsample_train, is_stack=False)
+        test_dataset = dataset(args.datadir, split='test', downsample=args.downsample_train, is_stack=True)
+
+    
     white_bg = train_dataset.white_bg
     near_far = train_dataset.near_far
     ndc_ray = args.ndc_ray
@@ -106,7 +141,7 @@ def reconstruction(args):
     if args.add_timestamp:
         logfolder = f'{args.basedir}/{args.expname}{datetime.datetime.now().strftime("-%Y%m%d-%H%M%S")}'
     else:
-        logfolder = f'{args.basedir}/{args.expname}'
+        logfolder = f'{args.basedir}/{args.expname}-{args.axis_mode}-{args.angle_pos}'
     
 
     # init log file
@@ -217,7 +252,7 @@ def reconstruction(args):
         PSNRs.append(-10.0 * np.log(loss) / np.log(10.0))
         summary_writer.add_scalar('train/PSNR', PSNRs[-1], global_step=iteration)
         summary_writer.add_scalar('train/mse', loss, global_step=iteration)
-
+        wandb.log({"train/PSNR": PSNRs[-1], "train/mse": loss})
 
         for param_group in optimizer.param_groups:
             param_group['lr'] = param_group['lr'] * lr_factor
@@ -230,6 +265,7 @@ def reconstruction(args):
                 + f' test_psnr = {float(np.mean(PSNRs_test)):.2f}'
                 + f' mse = {loss:.6f}'
             )
+            wandb.log({"test/psnr": np.mean(PSNRs_test)}, step=iteration)
             PSNRs = []
 
 
@@ -237,6 +273,7 @@ def reconstruction(args):
             PSNRs_test = evaluation(test_dataset,tensorf, args, renderer, f'{logfolder}/imgs_vis/', N_vis=args.N_vis,
                                     prtx=f'{iteration:06d}_', N_samples=nSamples, white_bg = white_bg, ndc_ray=ndc_ray, compute_extra_metrics=False)
             summary_writer.add_scalar('test/psnr', np.mean(PSNRs_test), global_step=iteration)
+            wandb.log({"test/psnr": np.mean(PSNRs_test)}, step=iteration)
 
 
 
@@ -301,11 +338,26 @@ def reconstruction(args):
 
 if __name__ == '__main__':
 
+    # start a new wandb run to track this script
+    wandb.init(
+        # set the wandb project where this run will be logged
+        project="TensoRF",
+        
+        # track hyperparameters and run metadata
+        config={
+        "axis_mode": "x",
+        "angle_pos": 1,
+        }
+    )
+    
     torch.set_default_dtype(torch.float32)
     torch.manual_seed(20211202)
     np.random.seed(20211202)
 
     args = config_parser()
+    args.axis_mode = wandb.config.axis_mode
+    args.angle_pos = wandb.config.angle_pos
+
     print(args)
 
     if  args.export_mesh:
@@ -316,3 +368,4 @@ if __name__ == '__main__':
     else:
         reconstruction(args)
 
+    wandb.finish()

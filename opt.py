@@ -2,7 +2,7 @@ import configargparse
 
 def config_parser(cmd=None):
     parser = configargparse.ArgumentParser()
-    parser.add_argument('--config', is_config_file=True,
+    parser.add_argument('--config', is_config_file=True, default="configs/lego_MERF.txt",
                         help='config file path')
     parser.add_argument("--expname", type=str,
                         help='experiment name')
@@ -20,7 +20,7 @@ def config_parser(cmd=None):
     parser.add_argument('--downsample_test', type=float, default=1.0)
 
     parser.add_argument('--model_name', type=str, default='TensorVMSplit',
-                        choices=['TensorVMSplit', 'TensorCP'])
+                        choices=['TensorVMSplit', 'TensorCP', 'TensorMG'])
 
     # loader options
     parser.add_argument("--batch_size", type=int, default=4096)
@@ -90,6 +90,9 @@ def config_parser(cmd=None):
     parser.add_argument("--render_test", type=int, default=0)
     parser.add_argument("--render_train", type=int, default=0)
     parser.add_argument("--render_path", type=int, default=0)
+    parser.add_argument("--transform", type=int, default=1)
+    parser.add_argument("--angle_pos", type=int, default=1)
+    parser.add_argument("--axis_mode", type=str, default='x')
     parser.add_argument("--export_mesh", type=int, default=0)
 
     # rendering options

@@ -1,0 +1,24 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {"CUDA_VISIBLE_DEVICES": "2"},
+            "args": [
+                "--config=configs/lego_MERF.txt",
+                // "--ckpt=/mnt/nas/share/home/jxr/3D-MAE/NeRF/nerf_synthetic/lego/lego.th",
+                // "--render_only=1",
+                // "--render_test=1",
+                // "--transform=1" 
+            ]
+        }
+    ]
+}

@@ -63,6 +63,8 @@ More options refer to the `opt.py`.
 
 ```
 python train.py --config configs/lego.txt --ckpt path/to/your/checkpoint --render_only 1 --render_test 1 
+
+python train.py --config configs/lego.txt --ckpt /mnt/nas/share/home/jxr/3D-MAE/NeRF/nerf_synthetic/lego/lego.th --render_only 1 --render_test 1 --transform 1
 ```
 
 You can just simply pass `--render_only 1` and `--ckpt path/to/your/checkpoint` to render images from a pre-trained
