@@ -316,7 +316,7 @@ class TensorMG(TensorBase):
     def init_svd_volume(self, res, device):
         self.density_plane, self.density_grid = self.init_one_svd(self.density_n_comp, self.gridSize, 0.1, device)
         self.app_plane, self.app_grid = self.init_one_svd(self.app_n_comp, self.gridSize, 0.1, device)
-        self.basis_mat = torch.nn.Linear(sum(self.app_n_comp), self.app_dim, bias=False).to(device)
+        self.basis_mat = torch.nn.Linear(self.app_n_comp[0], self.app_dim, bias=False).to(device)
 
 
     def init_one_svd(self, n_component, gridSize, scale, device):
@@ -325,8 +325,9 @@ class TensorMG(TensorBase):
             mat_id_0, mat_id_1 = self.matMode[i]
             plane_coef.append(torch.nn.Parameter(
                 scale * torch.randn((1, n_component[i], gridSize[mat_id_1], gridSize[mat_id_0]))))  #
+        # for gird * matrix instead of grid * concat(matrix)
         grid_coef.append(
-            torch.nn.Parameter(scale * torch.randn((1, sum(n_component), torch.div((gridSize[0]+3), 4, rounding_mode="floor"), 
+            torch.nn.Parameter(scale * torch.randn((1, n_component[0], torch.div((gridSize[0]+3), 4, rounding_mode="floor"), 
                                                     torch.div((gridSize[1]+3), 4, rounding_mode="floor"),  torch.div((gridSize[2]+3), 4, rounding_mode="floor") )) ))
 
         return torch.nn.ParameterList(plane_coef).to(device), torch.nn.ParameterList(grid_coef).to(device)
@@ -385,12 +386,15 @@ class TensorMG(TensorBase):
         # sigma_feature = torch.zeros((xyz_sampled.shape[0],), device=xyz_sampled.device)
         # sigma_feature = sigma_feature + grid_coef_point
         plane_coef_point = []
+        sigma_feature = grid_coef_point
+        
         for idx_plane in range(len(self.density_plane)):
             plane_coef_point.append(F.grid_sample(self.density_plane[idx_plane], coordinate_plane[[idx_plane]],
                                                 align_corners=True).view(-1, *xyz_sampled.shape[:1]))
-            # sigma_feature = sigma_feature + plane_coef_point 
-        plane_coef_point = torch.cat(plane_coef_point)
-        sigma_feature = torch.sum((grid_coef_point * plane_coef_point), 0)
+            sigma_feature = sigma_feature * plane_coef_point 
+        # plane_coef_point = torch.cat(plane_coef_point)
+        # sigma_feature = torch.sum((grid_coef_point * plane_coef_point), 0)
+        
         return sigma_feature
 
 
@@ -401,12 +405,14 @@ class TensorMG(TensorBase):
         grid_coef_point = F.grid_sample(self.app_grid[0], xyz_sampled.view(1,-1, 1, 1, 3),
                                                 align_corners=True).view(-1, *xyz_sampled.shape[:1])
         plane_coef_point = []
+        app_feature = grid_coef_point
         for idx_plane in range(len(self.app_plane)):
             plane_coef_point.append(F.grid_sample(self.app_plane[idx_plane], coordinate_plane[[idx_plane]],
                                                 align_corners=True).view(-1, *xyz_sampled.shape[:1]))
-        plane_coef_point = torch.cat(plane_coef_point)
+            app_feature = app_feature * plane_coef_point
+        # plane_coef_point = torch.cat(plane_coef_point)
 
-        return self.basis_mat((grid_coef_point * plane_coef_point).T)
+        return self.basis_mat(app_feature.T)
 
 
 
