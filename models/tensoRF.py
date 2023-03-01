@@ -391,10 +391,10 @@ class TensorMG(TensorBase):
         for idx_plane in range(len(self.density_plane)):
             plane_coef_point.append(F.grid_sample(self.density_plane[idx_plane], coordinate_plane[[idx_plane]],
                                                 align_corners=True).view(-1, *xyz_sampled.shape[:1]))
-            sigma_feature = sigma_feature * plane_coef_point 
+            sigma_feature = sigma_feature + plane_coef_point[idx_plane]
         # plane_coef_point = torch.cat(plane_coef_point)
         # sigma_feature = torch.sum((grid_coef_point * plane_coef_point), 0)
-        
+        sigma_feature = torch.sum(sigma_feature, 0)
         return sigma_feature
 
 
@@ -409,7 +409,7 @@ class TensorMG(TensorBase):
         for idx_plane in range(len(self.app_plane)):
             plane_coef_point.append(F.grid_sample(self.app_plane[idx_plane], coordinate_plane[[idx_plane]],
                                                 align_corners=True).view(-1, *xyz_sampled.shape[:1]))
-            app_feature = app_feature * plane_coef_point
+            app_feature = app_feature + plane_coef_point[idx_plane]
         # plane_coef_point = torch.cat(plane_coef_point)
 
         return self.basis_mat(app_feature.T)

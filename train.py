@@ -347,6 +347,7 @@ if __name__ == '__main__':
         config={
         "axis_mode": "x",
         "angle_pos": 1,
+        "concat_mode": "grid_add_multiplied_matrix", #"concat", "add", "multiply", "grid_weight_matrix", "grid_add_multiplied_matrix"
         }
     )
     
